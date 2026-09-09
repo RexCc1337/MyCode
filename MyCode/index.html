@@ -1,11 +1,187 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>RexCc1337 · 个人主页</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0f0f17;
+            --card: #1a1a2e;
+            --accent: #6c63ff;
+            --accent2: #00d4ff;
+            --text: #e6e6ee;
+            --muted: #9a9ab0;
+        }
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+        }
+        a { color: var(--accent2); text-decoration: none; transition: color .2s; }
+        a:hover { color: var(--accent); }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+            background: radial-gradient(circle at 50% 0%, rgba(108,99,255,.15), transparent 60%);
+        }
+        .hero::before {
+            content: "";
+            position: absolute;
+            width: 420px; height: 420px;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, transparent, var(--accent), transparent);
+            filter: blur(60px);
+            opacity: .5;
+            animation: spin 12s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .avatar {
+            width: 140px; height: 140px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 3rem; font-weight: 800; color: #fff;
+            margin-bottom: 1.4rem;
+            position: relative; z-index: 1;
+            box-shadow: 0 0 40px rgba(108,99,255,.4);
+        }
+        .hero h1 { font-size: 2.6rem; z-index: 1; }
+        .hero .tagline { color: var(--muted); margin-top: .6rem; z-index: 1; }
+        .hero .badges { margin-top: 1.6rem; display: flex; gap: .8rem; flex-wrap: wrap; justify-content: center; z-index: 1; }
+        .badge {
+            background: var(--card);
+            border: 1px solid rgba(108,99,255,.4);
+            padding: .4rem 1rem;
+            border-radius: 999px;
+            font-size: .85rem;
+            color: var(--text);
+        }
+        .btn {
+            margin-top: 2rem;
+            padding: .8rem 1.8rem;
+            border-radius: 999px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #fff; font-weight: 600;
+            z-index: 1;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(108,99,255,.35); }
+
+        /* Sections */
+        section { max-width: 900px; margin: 0 auto; padding: 4rem 2rem; }
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            position: relative;
+        }
+        .section-title::after {
+            content: "";
+            display: block;
+            width: 60px; height: 3px;
+            margin: .6rem auto 0;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            border-radius: 3px;
+        }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.2rem; }
+        .card {
+            background: var(--card);
+            border: 1px solid rgba(255,255,255,.06);
+            border-radius: 14px;
+            padding: 1.4rem;
+            transition: transform .25s, box-shadow .25s;
+        }
+        .card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(0,0,0,.4); }
+        .card h3 { margin-bottom: .4rem; }
+        .card p { color: var(--muted); font-size: .95rem; }
+
+        .skill-bar { background: rgba(255,255,255,.08); border-radius: 999px; height: 8px; margin-top: .5rem; overflow: hidden; }
+        .skill-bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 999px; }
+
+        footer { text-align: center; padding: 2.5rem; color: var(--muted); font-size: .85rem; border-top: 1px solid rgba(255,255,255,.06); }
+        .scroll-down { position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%); color: var(--muted); animation: bounce 2s infinite; }
+        @keyframes bounce { 0%,100%{transform:translate(-50%,0)} 50%{transform:translate(-50%,8px)} }
+    </style>
 </head>
 <body>
-    
+
+    <header class="hero">
+        <div class="avatar">R</div>
+        <h1>你好，我是 RexCc1337</h1>
+        <p class="tagline">前端开发者 · 热爱创造 · 持续学习</p>
+        <div class="badges">
+            <span class="badge">HTML</span>
+            <span class="badge">CSS</span>
+            <span class="badge">JavaScript</span>
+            <span class="badge">Git & GitHub</span>
+        </div>
+        <a class="btn" href="#about">了解更多</a>
+        <div class="scroll-down">▼</div>
+    </header>
+
+    <section id="about">
+        <h2 class="section-title">关于我</h2>
+        <p style="text-align:center; color:var(--muted);">
+            我是一名热爱 Web 开发的开发者，专注于构建简洁、美观且实用的网页与产品。
+            相信好的设计来源于代码的严谨与对用户体验的用心。这里是我的个人小站，欢迎交流。
+        </p>
+    </section>
+
+    <section id="skills">
+        <h2 class="section-title">技能</h2>
+        <div class="grid">
+            <div class="card"><h3>HTML / CSS</h3><div class="skill-bar"><span style="width:90%"></span></div></div>
+            <div class="card"><h3>JavaScript</h3><div class="skill-bar"><span style="width:80%"></span></div></div>
+            <div class="card"><h3>UI / 交互设计</h3><div class="skill-bar"><span style="width:75%"></span></div></div>
+            <div class="card"><h3>Git 协作</h3><div class="skill-bar"><span style="width:70%"></span></div></div>
+        </div>
+    </section>
+
+    <section id="projects">
+        <h2 class="section-title">项目</h2>
+        <div class="grid">
+            <div class="card"><h3>个人主页</h3><p>你正在浏览的页面，一个简洁的响应式名片站。</p></div>
+            <div class="card"><h3>更多项目</h3><p>持续开发中，敬请期待。</p></div>
+        </div>
+    </section>
+
+    <section id="contact">
+        <h2 class="section-title">联系我</h2>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
+            <div class="card" style="text-align:center;">
+                <h3>GitHub</h3>
+                <a href="https://github.com/RexCc1337" target="_blank" rel="noopener">@RexCc1337</a>
+            </div>
+            <div class="card" style="text-align:center;">
+                <h3>邮箱</h3>
+                <a href="mailto:you@example.com">you@example.com</a>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        © 2026 RexCc1337 · 使用 HTML & CSS 制作
+    </footer>
+
+    <script>
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+    </script>
 </body>
 </html>
