@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>魔方游戏</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: radial-gradient(circle at 30% 20%, #1b2735, #090a0f);
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    color: #eee;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    user-select: none;
+  }
+  header { padding: 14px; text-align: center; z-index: 10; }
+  header h1 { font-size: 22px; letter-spacing: 2px; }
+  header p { color: #8a95a5; font-size: 13px; margin-top: 4px; }
+  #stage { flex: 1; width: 100%; position: relative; }
+  #cube { position: absolute; transform-style: preserve-3d; }
+  .cubie {
+    position: absolute; width: 63px; height: 63px;
+    transform-style: preserve-3d;
+    margin-left: -31.5px; margin-top: -31.5px;
+  }
+  .sticker {
+    position: absolute; width: 63px; height: 63px;
+    box-sizing: border-box;
+    backface-visibility: visible;
+    -webkit-backface-visibility: visible;
+  }
+  .col-U { background: #fff; }
+  .col-D { background: #ffd500; }
+  .col-F { background: #009b48; }
+  .col-B { background: #0046ad; }
+  .col-L { background: #ff5800; }
+  .col-R { background: #d00000; }
+  .col-inner { background: #1b2129; }
+
+  #controls {
+    padding: 12px;
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    z-index: 10; max-width: 720px;
+  }
+  button {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #fff; padding: 9px 14px; border-radius: 8px;
+    cursor: pointer; font-size: 14px; transition: 0.2s;
+  }
+  button:hover { background: rgba(255,255,255,0.2); transform: translateY(-1px); }
+  button.danger { background: rgba(255,60,60,0.25); border-color: rgba(255,60,60,0.4); }
+  button.danger:hover { background: rgba(255,60,60,0.45); }
+  .hint { color: #8a95a5; font-size: 12px; max-width: 720px; text-align: center; padding: 0 20px 12px; z-index: 10; }
+  kbd { background: rgba(255,255,255,0.12); padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 11px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>魔方游戏</h1>
+    <p>拖拽鼠标旋转视角 · 点击按钮或用键盘转动魔方</p>
+  </header>
+
+  <div id="stage"><div id="cube"></div></div>
+
+  <div id="controls"></div>
+  <div class="hint">
+    转动：<kbd>U</kbd><kbd>D</kbd><kbd>L</kbd><kbd>R</kbd><kbd>F</kbd><kbd>B</kbd>（Shift 反转）+ 方向键旋转视角
+  </div>
+
+<script>
+(() => {
+  const COLORS = { U:"#fff", D:"#ffd500", F:"#009b48", B:"#0046ad", L:"#ff5800", R:"#d00000", inner:"#1b2129" };
+  const AXIS = { x:0, y:1, z:2 };
+  const W = 63;            // 每个小块的尺寸
+  const FACE_TRANSFORMS = [
+    { rot: "rotateY(0deg)  translateZ(31.5px)", axis: 0, sign:  1, cls: "this" },
+    { rot: "rotateY(180deg) translateZ(31.5px)", axis: 0, sign: -1, cls: "what" },
+  ];
+  const CUBIE_ORDER = [];
+  for (let x=-1;x<=1;x++) for (let y=-1;y<=1;y++) for (let z=-1;z<=1;z++) CUBIE_ORDER.push([x,y,z]);
+
+  let cubeRoot;
+  const cubies = [];
+  let rx = -28, ry = -38;   // 视角
+  let animating = false;
+
+  // —— 工具函数 ——
+  function matMul(a, b) {
+    const r = [[0,0,0],[0,0,0],[0,0,0]];
+    for (let i=0;i<3;i++) for (let j=0;j<3;j++)
+      for (let k=0;k<3;k++) r[i][j] += a[i][k]*b[k][j];
+    return r;
+  }
+  function matVec(m, v) {
+    return [
+      m[0][0]*v[0]+m[0][1]*v[1]+m[0][2]*v[2],
+      m[1][0]*v[0]+m[1][1]*v[1]+m[1][2]*v[2],
+      m[2][0]*v[0]+m[2][1]*v[1]+m[2][2]*v[2],
+    ];
+  }
+  function matrixToCSS(m) {
+    return `matrix3d(${m[0][0]},${m[1][0]},${m[2][0]},0, ${m[0][1]},${m[1][1]},${m[2][1]},0, ${m[0][2]},${m[1][2]},${m[2][2]},0, 0,0,0,1)`;
+  }
+  function rotName(axis) { return { x:"rotateX", y:"rotateY", z:"rotateZ" }[axis]; }
+  function rotMatrix(axis, angleSign) {
+    const c = Math.round(Math.cos(angleSign*Math.PI/2));
+    const s = Math.round(Math.sin(angleSign*Math.PI/2));
+    if (axis === "x") return [[1,0,0],[0,c,-s],[0,s,c]];
+    if (axis === "y") return [[c,0,s],[0,1,0],[-s,0,c]];
+    return [[c,-s,0],[s,c,0],[0,0,1]];
+  }
+  function allStickersRun() {}
+  function stickerTransform(c) {
+    // 每个 cubie 的六面贴纸：法线方向决定颜色
+    const defs = [
+      { rot: "rotateY(0deg)  translateZ(31.5px)", axis: 0, sign:  1, key: "R" }, // +X
+      { rot: "rotateY(180deg) translateZ(31.5px)", axis: 0, sign: -1, key: "L" }, // -X
+      { rot: "rotateX(-90deg) translateZ(31.5px)", axis: 1, sign:  1, key: "U" }, // +Y
+      { rot: "rotateX(90deg)  translateZ(31.5px)", axis: 1, sign: -1, key: "D" }, // -Y
+      { rot: "rotateY(90deg)  translateZ(31.5px)", axis: 2, sign:  1, key: "F" }, // +Z
+      { rot: "rotateY(-90deg) translateZ(31.5px)", axis: 2, sign: -1, key: "B" }, // -Z
+    ];
+    defs.forEach(d => {
+      const s = document.createElement("div");
+      s.className = "sticker";
+      s.style.transform = d.rot;
+      const coord = [c.pos[0], c.pos[1], c.pos[2]][d.axis];
+      s.style.background = (coord * d.sign === 1) ? COLORS[d.key] : COLORS.inner;
+      c.el.appendChild(s);
+    });
+  }
+
+  // —— 构建 ——
+  function buildCubeRoot() {
+    cubeRoot = document.getElementById("cube");
+    cubeRoot.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+    cubeRoot.innerHTML = "";
+    cubies.length = 0;
+
+    CUBIE_ORDER.forEach((pos, id) => {
+      const el = document.createElement("div");
+      el.className = "cubie";
+      el.style.transform = `translate3d(${pos[0]*W}px, ${pos[1]*W}px, ${pos[2]*W}px)`;
+      const c = { id, el, pos: pos.slice(), mat: [[1,0,0],[0,1,0],[0,0,1]] };
+      stickerTransform(c);
+      cubeRoot.appendChild(el);
+      cubies.push(c);
+    });
+  }
+
+  // —— 转动 ——
+  function turnLayer(axis, layerCoord, angleSign) {
+    if (animating) return;
+    animating = true;
+
+    const affected = cubies.filter(c => c.pos[AXIS[axis]] === layerCoord);
+    const group = document.createElement("div");
+    group.style.position = "absolute";
+    group.style.transformStyle = "preserve-3d";
+    cubeRoot.appendChild(group);
+
+    affected.forEach(c => {
+      group.appendChild(c.el);
+      c.el.style.transform = `translate3d(${c.pos[0]*W}px, ${c.pos[1]*W}px, ${c.pos[2]*W}px)`;
+    });
+
+    group.style.transition = "transform 0.28s cubic-bezier(.3,.7,.3,1)";
+    group.style.transform = `${rotName(axis)}(${angleSign*90}deg)`;
+
+    setTimeout(() => settle(group, affected, axis, angleSign, true), 285);
+  }
+
+  function settle(group, affected, axis, angleSign, animate) {
+    const rotMat = rotMatrix(axis, angleSign);
+    affected.forEach(c => {
+      c.pos = matVec(rotMat, c.pos).map(Math.round);
+      c.mat = matMul(c.mat, rotMat);
+      c.el.style.transition = animate ? "none" : "none";
+      c.el.style.transform = `translate3d(${c.pos[0]*W}px, ${c.pos[1]*W}px, ${c.pos[2]*W}px) ${matrixToCSS(c.mat)}`;
+      cubeRoot.appendChild(c.el);
+    });
+    group.remove();
+    checkSolved();
+  }
+
+  // —— 打乱 ——
+  function scramble() {
+    if (animating) return;
+    const seq = [];
+    const axes = ["x","y","z"]; const layers = [-1,0,1]; const dirs = [1,-1];
+    for (let i=0;i<22;i++)
+      seq.push([axes[Math.floor(Math.random()*3)], layers[Math.floor(Math.random()*3)], dirs[Math.floor(Math.random()*2)]]);
+
+    let i = 0;
+    (function next() {
+      if (i >= seq.length) { animating = false; return; }
+      const [a,L,d] = seq[i++];
+      const affected = cubies.filter(c => c.pos[AXIS[a]] === L);
+      const group = document.createElement("div");
+      group.style.position = "absolute";
+      group.style.transformStyle = "preserve-3d";
+      cubeRoot.appendChild(group);
+      affected.forEach(c => {
+        group.appendChild(c.el);
+        c.el.style.transform = `translate3d(${c.pos[0]*W}px, ${c.pos[1]*W}px, ${c.pos[2]*W}px)`;
+      });
+      group.style.transition = "none";
+      group.style.transform = `${rotName(a)}(${d*90}deg)`;
+
+      const rotMat = rotMatrix(a, d);
+      affected.forEach(c => {
+        c.pos = matVec(rotMat, c.pos).map(Math.round);
+        c.mat = matMul(c.mat, rotMat);
+        c.el.style.transform = `translate3d(${c.pos[0]*W}px, ${c.pos[1]*W}px, ${c.pos[2]*W}px) ${matrixToCSS(c.mat)}`;
+        cubeRoot.appendChild(c.el);
+      });
+      group.remove();
+      requestAnimationFrame(()=>requestAnimationFrame(next));
+    })();
+  }
+
+  // —— 还原 ——
+  function resetCube() {
+    if (animating) return;
+    cubies.forEach(c => {
+      const p = CUBIE_ORDER[c.id];
+      c.pos = p.slice();
+      c.mat = [[1,0,0],[0,1,0],[0,0,1]];
+      c.el.style.transition = "transform 0.55s";
+      c.el.style.transform = `translate3d(${p[0]*W}px, ${p[1]*W}px, ${p[2]*W}px)`;
+    });
+    setTimeout(checkSolved, 600);
+  }
+
+  // —— 检查还原 ——
+  function checkSolved() {
+    const solved = cubies.every(c => {
+      const p = CUBIE_ORDER[c.id];
+      return c.pos[0]===p[0] && c.pos[1]===p[1] && c.pos[2]===p[2] &&
+             c.mat[0][0]===1 && c.mat[1][1]===1 && c.mat[2][2]===1 &&
+             c.mat[0][1]===0 && c.mat[0][2]===0 && c.mat[1][0]===0 &&
+             c.mat[1][2]===0 && c.mat[2][0]===0 && c.mat[2][1]===0;
+    });
+    document.querySelector(".hint").innerHTML = solved
+      ? "🎉 恭喜！魔方已还原，点击「打乱」再来一局。"
+      : "转动：<kbd>U</kbd><kbd>D</kbd><kbd>L</kbd><kbd>R</kbd><kbd>F</kbd><kbd>B</kbd>（Shift 反转）+ 方向键旋转视角";
+  }
+
+  // —— 控件 ——
+  function buildControls() {
+    const c = document.getElementById("controls");
+    const add = (label, cls, fn) => {
+      const b = document.createElement("button");
+      b.textContent = label; if (cls) b.className = cls;
+      b.onclick = fn; c.appendChild(b);
+    };
+    add("U", "", () => turnLayer("y", 1, 1));
+    add("D", "", () => turnLayer("y", -1, -1));
+    add("L", "", () => turnLayer("x", -1, 1));
+    add("R", "", () => turnLayer("x", 1, -1));
+    add("F", "", () => turnLayer("z", 1, 1));
+    add("B", "", () => turnLayer("z", -1, -1));
+    add("打乱 (Scramble)", "", scramble);
+    add("还原 (Reset)", "danger", resetCube);
+  }
+
+  // —— 拖拽 & 键盘 ——
+  function setupInteraction() {
+    const stage = document.getElementById("stage");
+    let dragging = false, sx = 0, sy = 0;
+
+    stage.addEventListener("mousedown", e => { dragging = true; sx = e.clientX; sy = e.clientY; });
+    window.addEventListener("mousemove", e => {
+      if (!dragging) return;
+      ry += (e.clientX - sx) * 0.4; rx -= (e.clientY - sy) * 0.4;
+      sx = e.clientX; sy = e.clientY;
+      cubeRoot.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+    });
+    window.addEventListener("mouseup", () => dragging = false);
+
+    stage.addEventListener("touchstart", e => {
+      if (e.touches.length === 1) { dragging = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; }
+    }, {passive:true});
+    stage.addEventListener("touchmove", e => {
+      if (!dragging || e.touches.length !== 1) return;
+      ry += (e.touches[0].clientX - sx) * 0.4; rx -= (e.touches[0].clientY - sy) * 0.4;
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+      cubeRoot.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+    }, {passive:true});
+    stage.addEventListener("touchend", () => dragging = false);
+
+    window.addEventListener("keydown", e => {
+      if (e.key.startsWith("Arrow")) {
+        e.preventDefault();
+        if (e.key === "ArrowLeft") ry += 20;
+        if (e.key === "ArrowRight") ry -= 20;
+        if (e.key === "ArrowUp") rx += 20;
+        if (e.key === "ArrowDown") rx -= 20;
+        cubeRoot.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+        return;
+      }
+      const k = e.key.toUpperCase(); const shift = e.shiftKey;
+      const map = {
+        U: ["y", 1, shift ? -1 : 1], D: ["y", -1, shift ? 1 : -1],
+        L: ["x", -1, shift ? 1 : -1], R: ["x", 1, shift ? -1 : 1],
+        F: ["z", 1, shift ? 1 : -1], B: ["z", -1, shift ? -1 : 1],
+      };
+      if (map[k]) turnLayer(map[k][0], map[k][1], map[k][2]);
+    });
+  }
+
+  // —— 居中 ——
+  function centerCube() {
+    const rec = document.getElementById("stage").getBoundingClientRect();
+    cubeRoot.style.left = (rec.width / 2) + "px";
+    cubeRoot.style.top = (rec.height / 2) + "px";
+  }
+  window.addEventListener("resize", centerCube);
+
+  // —— 启动 ——
+  buildCubeRoot();
+  buildControls();
+  setupInteraction();
+  centerCube();
+  setTimeout(centerCube, 300);
+})();
+</script>
+</body>
+</html>
